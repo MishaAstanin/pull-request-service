@@ -14,7 +14,6 @@ import random
 from django.db.models import Count
 
 
-
 class TeamViewSet(viewsets.GenericViewSet):
     queryset = Team.objects.all()
     serializer_class = TeamSerializer
@@ -30,7 +29,7 @@ class TeamViewSet(viewsets.GenericViewSet):
         team_name = request.data.get('team_name')
         if Team.objects.filter(team_name=team_name).exists():
             return Response(
-                {'error': {'code': 'TEAM_EXISTS', 'message': 'team_name уже существует'}},
+                {'error': {'code': 'TEAM_EXISTS', 'message': f'{team_name} already exists'}},
                 status=status.HTTP_400_BAD_REQUEST
             )
         serializer = self.get_serializer(data=request.data)
@@ -67,7 +66,7 @@ class UserViewSet(viewsets.GenericViewSet):
 
         serializer = self.get_serializer(user)
         return Response({'user': serializer.data}, status=status.HTTP_200_OK)
-    
+
     @action(detail=False, methods=['get'], url_path='getReview')
     def get_review_prs(self, request, *args, **kwargs):
         user_id = request.query_params.get('user_id')
@@ -107,7 +106,7 @@ class PullRequestViewSet(viewsets.GenericViewSet):
             else:
                 return Response(
                     {"error": {"code": "NOT_FOUND",
-                               "message": "Автор/команда не найдены"}},
+                               "message": "Author/team not found"}},
                     status=status.HTTP_404_NOT_FOUND)
 
         return Response({'pr': serializer.data}, status=status.HTTP_201_CREATED)
@@ -118,7 +117,7 @@ class PullRequestViewSet(viewsets.GenericViewSet):
         if not pull_request_id:
             return Response(
                 {"error": {"code": "BAD_REQUEST",
-                           "message": "pull_request_id обязателен"}},
+                           "message": "pull_request_id is required"}},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -143,7 +142,7 @@ class PullRequestViewSet(viewsets.GenericViewSet):
         if not pull_request_id or not old_user_id:
             return Response(
                 {"error": {"code": "BAD_REQUEST",
-                           "message": "pull_request_id и old_user_id обязательны"}},
+                           "message": "pull_request_id and old_user_id are required"}},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -185,9 +184,11 @@ class PullRequestViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(pull_request)
         return Response({'pr': serializer.data, 'replaced_by': new_reviewer.pk}, status=status.HTTP_200_OK)
 
+
 @api_view(['GET'])
 def get_user_statistics(request):
-    stats = User.objects.annotate(assignments_count=Count('review_assignments')).values('pk', 'username', 'assignments_count')
+    stats = User.objects.annotate(assignments_count=Count(
+        'review_assignments')).values('pk', 'username', 'assignments_count')
 
     data = [
         {
@@ -198,9 +199,11 @@ def get_user_statistics(request):
     ]
     return Response(data)
 
+
 @api_view(['GET'])
 def get_pr_statistics(request):
-    stats = PullRequest.objects.annotate(reviewers_count=Count('assigned_reviewers')).values('pk', 'pull_request_name', 'reviewers_count')
+    stats = PullRequest.objects.annotate(reviewers_count=Count(
+        'assigned_reviewers')).values('pk', 'pull_request_name', 'reviewers_count')
 
     data = [
         {
@@ -210,4 +213,3 @@ def get_pr_statistics(request):
         } for pr in stats
     ]
     return Response(data)
-
