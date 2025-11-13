@@ -9,6 +9,7 @@ from rest_framework.settings import api_settings
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from django.utils.timezone import now
+import random
 
 
 class TeamViewSet(viewsets.GenericViewSet):
@@ -112,3 +113,51 @@ class PullRequestViewSet(viewsets.GenericViewSet):
 
         serializer = PullRequestMergeSerializer(pull_request)
         return Response({'pr': serializer.data}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='reassign')
+    def reassign_reviewer(self, request, *args, **kwargs):
+        pull_request_id = request.data.get('pull_request_id')
+        old_user_id = request.data.get('old_user_id')
+
+        if not pull_request_id or not old_user_id:
+            return Response(
+                {"error": {"code": "BAD_REQUEST", "message": "pull_request_id и old_user_id обязательны"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        pull_request = get_object_or_404(PullRequest, pk=pull_request_id)
+
+        if pull_request.status == 'MERGED':
+            return Response(
+                {"error": {"code": "PR_MERGED", "message": "cannot reassign on merged PR"}},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        old_reviewer = get_object_or_404(User, pk=old_user_id)
+
+        if old_reviewer not in pull_request.assigned_reviewers.all():
+            return Response(
+                {"error": {"code": "NOT_ASSIGNED", "message": "reviewer is not assigned to this PR"}},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        
+        candidates = list(
+            old_reviewer.team.members.filter(is_active=True)
+                .exclude(pk__in=[old_reviewer.pk] + list(pull_request.assigned_reviewers.values_list('pk', flat=True)))
+        )
+
+        if not candidates:
+            return Response(
+                {"error": {"code": "NO_CANDIDATE", "message": "no active replacement candidate in team"}},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        new_reviewer = random.choice(candidates)
+
+        pull_request.assigned_reviewers.remove(old_reviewer)
+        pull_request.assigned_reviewers.add(new_reviewer)
+        pull_request.save()
+
+        serializer = self.get_serializer(pull_request)
+        return Response({'pr': serializer.data, 'replaced_by': new_reviewer.pk}, status=status.HTTP_200_OK)
