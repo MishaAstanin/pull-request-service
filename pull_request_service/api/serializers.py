@@ -8,6 +8,13 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'username', 'is_active')
 
+class UserTeamSerializer(serializers.ModelSerializer):
+    team = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'team', 'is_active')
+
 
 class TeamSerializer(serializers.ModelSerializer):
     members = UserSerializer(many=True)

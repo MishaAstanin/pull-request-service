@@ -1,9 +1,11 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from teams.models import Team
-from .serializers import TeamSerializer
+from users.models import User
+from .serializers import TeamSerializer, UserSerializer, UserTeamSerializer
 from rest_framework.decorators import action
 from rest_framework.settings import api_settings
+from django.shortcuts import get_object_or_404
 
 
 class TeamViewSet(viewsets.GenericViewSet):
@@ -33,12 +35,27 @@ class TeamViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'], url_path='get')
     def get_team(self, request, *args, **kwargs):
         team_name = request.query_params.get('team_name')
-        try:
-            team = self.get_queryset().get(team_name=team_name)
-        except Team.DoesNotExist:
-            return Response(
-                {'error': {'code': 'NOT_FOUND', 'message': 'Команда не найдена'}},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        team = get_object_or_404(self.get_queryset(), team_name=team_name)
         serializer = self.get_serializer(team)
         return Response(serializer.data)
+
+class UserViewSet(viewsets.GenericViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserTeamSerializer
+
+    @action(detail=False, methods=['post'], url_path='setIsActive')
+    def set_active(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        is_active = request.data.get('is_active')
+        if user_id is None or is_active is None:
+            return Response(
+                {'detail': 'user_id и is_active обязательны'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = get_object_or_404(User, pk=user_id)
+        user.is_active = is_active
+        user.save()
+
+        serializer = self.get_serializer(user)
+        return Response({'user': serializer.data}, status=status.HTTP_200_OK)
