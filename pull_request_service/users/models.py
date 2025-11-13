@@ -17,6 +17,7 @@ class User(models.Model):
         on_delete=models.CASCADE,
         verbose_name="Команда пользователя",
         related_name='members',
+        blank=True,
     )
     is_active = models.BooleanField(
         default=True, verbose_name="Статус активности")
