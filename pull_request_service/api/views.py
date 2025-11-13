@@ -2,10 +2,12 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from teams.models import Team
 from users.models import User
-from .serializers import TeamSerializer, UserSerializer, UserTeamSerializer
+from pull_requests.models import PullRequest
+from .serializers import TeamSerializer, UserTeamSerializer, PullRequestSerializer
 from rest_framework.decorators import action
 from rest_framework.settings import api_settings
 from django.shortcuts import get_object_or_404
+from rest_framework import serializers
 
 
 class TeamViewSet(viewsets.GenericViewSet):
@@ -59,3 +61,27 @@ class UserViewSet(viewsets.GenericViewSet):
 
         serializer = self.get_serializer(user)
         return Response({'user': serializer.data}, status=status.HTTP_200_OK)
+    
+
+class PullRequestViewSet(viewsets.GenericViewSet):
+    queryset = PullRequest.objects.all()
+    serializer_class = PullRequestSerializer
+
+    @action(detail=False, methods=['post'], url_path='create')
+    def create_pull_request(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.save()
+        except serializers.ValidationError as e:
+            detail = e.detail
+            if 'pull_request_name' in detail:
+                return Response(
+                    {"error": {"code": "PR_EXISTS", "message": detail['pull_request_name']}},
+                    status=status.HTTP_409_CONFLICT)
+            else:
+                return Response(
+                    {"error": {"code": "NOT_FOUND", "message": "Автор/команда не найдены"}},
+                    status=status.HTTP_404_NOT_FOUND)
+
+        return Response({'pr': serializer.data}, status=status.HTTP_201_CREATED)
