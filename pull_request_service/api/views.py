@@ -1,15 +1,18 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.decorators import api_view
 from teams.models import Team
 from users.models import User
 from pull_requests.models import PullRequest
-from .serializers import TeamSerializer, UserTeamSerializer, PullRequestSerializer, PullRequestMergeSerializer
+from .serializers import TeamSerializer, UserTeamSerializer, PullRequestSerializer, PullRequestMergeSerializer, PullRequestShortSerializer
 from rest_framework.decorators import action
 from rest_framework.settings import api_settings
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from django.utils.timezone import now
 import random
+from django.db.models import Count
+
 
 
 class TeamViewSet(viewsets.GenericViewSet):
@@ -64,6 +67,24 @@ class UserViewSet(viewsets.GenericViewSet):
 
         serializer = self.get_serializer(user)
         return Response({'user': serializer.data}, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['get'], url_path='getReview')
+    def get_review_prs(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response(
+                {"detail": "user_id обязателен"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = get_object_or_404(User, pk=user_id)
+        pull_requests = user.review_assignments.all()
+        serializer = PullRequestShortSerializer(pull_requests, many=True)
+
+        return Response({
+            'user_id': user_id,
+            'pull_requests': serializer.data
+        }, status=status.HTTP_200_OK)
 
 
 class PullRequestViewSet(viewsets.GenericViewSet):
@@ -121,7 +142,8 @@ class PullRequestViewSet(viewsets.GenericViewSet):
 
         if not pull_request_id or not old_user_id:
             return Response(
-                {"error": {"code": "BAD_REQUEST", "message": "pull_request_id и old_user_id обязательны"}},
+                {"error": {"code": "BAD_REQUEST",
+                           "message": "pull_request_id и old_user_id обязательны"}},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -137,19 +159,20 @@ class PullRequestViewSet(viewsets.GenericViewSet):
 
         if old_reviewer not in pull_request.assigned_reviewers.all():
             return Response(
-                {"error": {"code": "NOT_ASSIGNED", "message": "reviewer is not assigned to this PR"}},
+                {"error": {"code": "NOT_ASSIGNED",
+                           "message": "reviewer is not assigned to this PR"}},
                 status=status.HTTP_409_CONFLICT,
             )
 
-        
         candidates = list(
             old_reviewer.team.members.filter(is_active=True)
-                .exclude(pk__in=[old_reviewer.pk] + list(pull_request.assigned_reviewers.values_list('pk', flat=True)))
+            .exclude(pk__in=[old_reviewer.pk] + list(pull_request.assigned_reviewers.values_list('pk', flat=True)))
         )
 
         if not candidates:
             return Response(
-                {"error": {"code": "NO_CANDIDATE", "message": "no active replacement candidate in team"}},
+                {"error": {"code": "NO_CANDIDATE",
+                           "message": "no active replacement candidate in team"}},
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -161,3 +184,30 @@ class PullRequestViewSet(viewsets.GenericViewSet):
 
         serializer = self.get_serializer(pull_request)
         return Response({'pr': serializer.data, 'replaced_by': new_reviewer.pk}, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+def get_user_statistics(request):
+    stats = User.objects.annotate(assignments_count=Count('review_assignments')).values('pk', 'username', 'assignments_count')
+
+    data = [
+        {
+            'user_id': user['pk'],
+            'username': user['username'],
+            'assignments_count': user['assignments_count']
+        } for user in stats
+    ]
+    return Response(data)
+
+@api_view(['GET'])
+def get_pr_statistics(request):
+    stats = PullRequest.objects.annotate(reviewers_count=Count('assigned_reviewers')).values('pk', 'pull_request_name', 'reviewers_count')
+
+    data = [
+        {
+            'pull_request_id': pr['pk'],
+            'pull_request_name': pr['pull_request_name'],
+            'reviewers_count': pr['reviewers_count']
+        } for pr in stats
+    ]
+    return Response(data)
+

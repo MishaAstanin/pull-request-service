@@ -63,3 +63,10 @@ class PullRequestMergeSerializer(serializers.ModelSerializer):
         model = PullRequest
         fields = ('id', 'pull_request_name', 'author', 'status', 'assigned_reviewers', 'merged_at')
         read_only_fields = ('status', 'assigned_reviewers', 'merged_at')
+    
+class PullRequestShortSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = PullRequest
+        fields = ('id', 'pull_request_name', 'author', 'status')
+        read_only_fields = ('status',)
