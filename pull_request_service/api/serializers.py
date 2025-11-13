@@ -1,22 +1,27 @@
-from rest_framework import serializers
+import random
+
 from teams.models import Team
 from users.models import User
 from pull_requests.models import PullRequest
-import random
+
+from rest_framework import serializers
 
 
 class UserSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='id', read_only=True)
+
     class Meta:
         model = User
-        fields = ('id', 'username', 'is_active')
+        fields = ('user_id', 'username', 'is_active')
 
 
 class UserTeamSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='id', read_only=True)
     team = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'team', 'is_active')
+        fields = ('user_id', 'username', 'team', 'is_active')
 
 
 class TeamSerializer(serializers.ModelSerializer):
@@ -24,7 +29,7 @@ class TeamSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Team
-        fields = ('id', 'team_name', 'members')
+        fields = ('team_name', 'members')
 
     def create(self, validated_data):
         members = validated_data.pop('members')
@@ -38,10 +43,12 @@ class TeamSerializer(serializers.ModelSerializer):
 
 
 class PullRequestSerializer(serializers.ModelSerializer):
+    pull_request_id = serializers.IntegerField(source='id', read_only=True)
+    author_id = serializers.PrimaryKeyRelatedField(source='author', queryset=User.objects.all())
 
     class Meta:
         model = PullRequest
-        fields = ('id', 'pull_request_name', 'author',
+        fields = ('pull_request_id', 'pull_request_name', 'author_id',
                   'status', 'assigned_reviewers')
         read_only_fields = ('status', 'assigned_reviewers')
 
@@ -66,17 +73,21 @@ class PullRequestSerializer(serializers.ModelSerializer):
 
 
 class PullRequestMergeSerializer(serializers.ModelSerializer):
+    pull_request_id = serializers.IntegerField(source='id', read_only=True)
+    author_id = serializers.PrimaryKeyRelatedField(source='author', queryset=User.objects.all())
 
     class Meta:
         model = PullRequest
-        fields = ('id', 'pull_request_name', 'author',
+        fields = ('pull_request_id', 'pull_request_name', 'author_id',
                   'status', 'assigned_reviewers', 'merged_at')
         read_only_fields = ('status', 'assigned_reviewers', 'merged_at')
 
 
 class PullRequestShortSerializer(serializers.ModelSerializer):
+    pull_request_id = serializers.IntegerField(source='id', read_only=True)
+    author_id = serializers.PrimaryKeyRelatedField(source='author', queryset=User.objects.all())
 
     class Meta:
         model = PullRequest
-        fields = ('id', 'pull_request_name', 'author', 'status')
+        fields = ('pull_request_id', 'pull_request_name', 'author_id', 'status')
         read_only_fields = ('status',)

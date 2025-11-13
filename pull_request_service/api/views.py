@@ -1,17 +1,25 @@
-from rest_framework import viewsets, status
+import random
+
+from django.db.models import Count
+from django.shortcuts import get_object_or_404
+from django.utils.timezone import now
+
+from rest_framework import serializers, status, viewsets
+from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.settings import api_settings
+
+from pull_requests.models import PullRequest
 from teams.models import Team
 from users.models import User
-from pull_requests.models import PullRequest
-from .serializers import TeamSerializer, UserTeamSerializer, PullRequestSerializer, PullRequestMergeSerializer, PullRequestShortSerializer
-from rest_framework.decorators import action
-from rest_framework.settings import api_settings
-from django.shortcuts import get_object_or_404
-from rest_framework import serializers
-from django.utils.timezone import now
-import random
-from django.db.models import Count
+
+from .serializers import (
+    PullRequestMergeSerializer,
+    PullRequestSerializer,
+    PullRequestShortSerializer,
+    TeamSerializer,
+    UserTeamSerializer,
+)
 
 
 class TeamViewSet(viewsets.GenericViewSet):
@@ -29,7 +37,8 @@ class TeamViewSet(viewsets.GenericViewSet):
         team_name = request.data.get('team_name')
         if Team.objects.filter(team_name=team_name).exists():
             return Response(
-                {'error': {'code': 'TEAM_EXISTS', 'message': f'{team_name} already exists'}},
+                {'error': {'code': 'TEAM_EXISTS',
+                           'message': f'{team_name} already exists'}},
                 status=status.HTTP_400_BAD_REQUEST
             )
         serializer = self.get_serializer(data=request.data)
@@ -56,7 +65,7 @@ class UserViewSet(viewsets.GenericViewSet):
         is_active = request.data.get('is_active')
         if user_id is None or is_active is None:
             return Response(
-                {'detail': 'user_id и is_active обязательны'},
+                {'detail': 'user_id and is_active are required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -72,7 +81,7 @@ class UserViewSet(viewsets.GenericViewSet):
         user_id = request.query_params.get('user_id')
         if not user_id:
             return Response(
-                {"detail": "user_id обязателен"},
+                {"detail": "user_id is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -165,7 +174,7 @@ class PullRequestViewSet(viewsets.GenericViewSet):
 
         candidates = list(
             old_reviewer.team.members.filter(is_active=True)
-            .exclude(pk__in=[old_reviewer.pk] + list(pull_request.assigned_reviewers.values_list('pk', flat=True)))
+            .exclude(pk__in=[old_reviewer.pk] + list(pull_request.assigned_reviewers.values_list('pk', flat=True)) + [pull_request.author.pk])
         )
 
         if not candidates:

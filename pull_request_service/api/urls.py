@@ -1,6 +1,14 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from .views import TeamViewSet, UserViewSet, PullRequestViewSet, get_user_statistics, get_pr_statistics
+
+from .views import (
+    PullRequestViewSet,
+    TeamViewSet,
+    UserViewSet,
+    get_pr_statistics,
+    get_user_statistics,
+)
+
 
 router = DefaultRouter()
 router.register(r'team', TeamViewSet)
