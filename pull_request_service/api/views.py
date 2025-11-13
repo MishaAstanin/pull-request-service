@@ -3,11 +3,12 @@ from rest_framework.response import Response
 from teams.models import Team
 from users.models import User
 from pull_requests.models import PullRequest
-from .serializers import TeamSerializer, UserTeamSerializer, PullRequestSerializer
+from .serializers import TeamSerializer, UserTeamSerializer, PullRequestSerializer, PullRequestMergeSerializer
 from rest_framework.decorators import action
 from rest_framework.settings import api_settings
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
+from django.utils.timezone import now
 
 
 class TeamViewSet(viewsets.GenericViewSet):
@@ -41,6 +42,7 @@ class TeamViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(team)
         return Response(serializer.data)
 
+
 class UserViewSet(viewsets.GenericViewSet):
     queryset = User.objects.all()
     serializer_class = UserTeamSerializer
@@ -61,7 +63,7 @@ class UserViewSet(viewsets.GenericViewSet):
 
         serializer = self.get_serializer(user)
         return Response({'user': serializer.data}, status=status.HTTP_200_OK)
-    
+
 
 class PullRequestViewSet(viewsets.GenericViewSet):
     queryset = PullRequest.objects.all()
@@ -77,11 +79,36 @@ class PullRequestViewSet(viewsets.GenericViewSet):
             detail = e.detail
             if 'pull_request_name' in detail:
                 return Response(
-                    {"error": {"code": "PR_EXISTS", "message": detail['pull_request_name']}},
+                    {"error": {"code": "PR_EXISTS",
+                               "message": detail['pull_request_name']}},
                     status=status.HTTP_409_CONFLICT)
             else:
                 return Response(
-                    {"error": {"code": "NOT_FOUND", "message": "Автор/команда не найдены"}},
+                    {"error": {"code": "NOT_FOUND",
+                               "message": "Автор/команда не найдены"}},
                     status=status.HTTP_404_NOT_FOUND)
 
         return Response({'pr': serializer.data}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path='merge')
+    def merge_pull_request(self, request, *args, **kwargs):
+        pull_request_id = request.data.get('pull_request_id')
+        if not pull_request_id:
+            return Response(
+                {"error": {"code": "BAD_REQUEST",
+                           "message": "pull_request_id обязателен"}},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        pull_request = get_object_or_404(PullRequest, pk=pull_request_id)
+
+        if pull_request.status == 'MERGED':
+            serializer = PullRequestMergeSerializer(pull_request)
+            return Response({'pr': serializer.data}, status=status.HTTP_200_OK)
+
+        pull_request.status = 'MERGED'
+        pull_request.merged_at = now()
+        pull_request.save()
+
+        serializer = PullRequestMergeSerializer(pull_request)
+        return Response({'pr': serializer.data}, status=status.HTTP_200_OK)

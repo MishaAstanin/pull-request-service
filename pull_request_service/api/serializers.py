@@ -56,3 +56,10 @@ class PullRequestSerializer(serializers.ModelSerializer):
         pull_request.assigned_reviewers.set(assigned_reviewers)
         pull_request.save()
         return pull_request    
+    
+class PullRequestMergeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = PullRequest
+        fields = ('id', 'pull_request_name', 'author', 'status', 'assigned_reviewers', 'merged_at')
+        read_only_fields = ('status', 'assigned_reviewers', 'merged_at')
