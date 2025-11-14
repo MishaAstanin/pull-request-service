@@ -29,6 +29,38 @@ paths:
                     is_active: true
         '404':
           description: Команда не найдена
+  
+  /api/team/deactivate/:
+    post:
+      tags:
+      - Teams
+      summary: Деактивировать команду
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamName'
+            example:
+              team_name: payments
+      responses:
+        '200':
+          description: Команда деактивирована
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+              example:
+                team_name: backend
+                members:
+                  - user_id: 1
+                    username: Alice
+                    is_active: false
+                  - user_id: 2
+                    username: Bob
+                    is_active: false
+        '404':
+          description: Команда не найдена
 
   /api/users/getReview/:
     get:
@@ -444,6 +476,15 @@ components:
         type: integer
 
   schemas:
+    TeamName:
+      type: object
+      required:
+        - team_name
+      properties:
+        team_name:
+          type: string
+          maxLength: 128
+        
     Team:
       type: object
       required:

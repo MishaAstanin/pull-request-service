@@ -55,6 +55,23 @@ class TeamViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(team)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['post'], url_path='deactivate')
+    def deactivate_team(self, request, *args, **kwargs):
+        team_name = request.data.get('team_name')
+        if not team_name:
+            return Response(
+                {'error': {'code': 'BAD_REQUEST', 'message': 'team_name is required'}},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        team = get_object_or_404(Team, team_name=team_name)
+
+        with transaction.atomic():
+            team.members.update(is_active=False)
+
+        serializer = self.get_serializer(team)
+        return Response({'team': serializer.data}, status=status.HTTP_200_OK)
+
 
 class UserViewSet(viewsets.GenericViewSet):
     queryset = User.objects.all()
