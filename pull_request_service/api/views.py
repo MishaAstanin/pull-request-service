@@ -1,5 +1,6 @@
 import random
 
+from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.utils.timezone import now
@@ -70,25 +71,27 @@ class UserViewSet(viewsets.GenericViewSet):
             )
 
         user = get_object_or_404(User, pk=user_id)
-        user.is_active = is_active
-        user.save()
 
-        if not is_active:
-            open_prs = user.review_assignments.filter(status='OPEN')
+        with transaction.atomic():
+            user.is_active = is_active
+            user.save()
 
-            for pr in open_prs:
-                pr.assigned_reviewers.remove(user)
+            if not is_active:
+                open_prs = user.review_assignments.filter(status='OPEN')
 
-                candidates = pr.author.team.members.filter(is_active=True).exclude(
-                    pk__in=[pr.author.pk] +
-                    list(pr.assigned_reviewers.values_list('pk', flat=True))
-                )
+                for pr in open_prs:
+                    pr.assigned_reviewers.remove(user)
 
-                if candidates.exists():
-                    new_reviewer = random.choice(list(candidates))
-                    pr.assigned_reviewers.add(new_reviewer)
+                    candidates = pr.author.team.members.filter(is_active=True).exclude(
+                        pk__in=[pr.author.pk] +
+                        list(pr.assigned_reviewers.values_list('pk', flat=True))
+                    )
 
-                pr.save()
+                    if candidates.exists():
+                        new_reviewer = random.choice(list(candidates))
+                        pr.assigned_reviewers.add(new_reviewer)
+
+                    pr.save()
 
         serializer = self.get_serializer(user)
         return Response({'user': serializer.data}, status=status.HTTP_200_OK)
@@ -231,9 +234,10 @@ class PullRequestViewSet(viewsets.GenericViewSet):
 
         new_reviewer = random.choice(candidates)
 
-        pull_request.assigned_reviewers.remove(old_reviewer)
-        pull_request.assigned_reviewers.add(new_reviewer)
-        pull_request.save()
+        with transaction.atomic():
+            pull_request.assigned_reviewers.remove(old_reviewer)
+            pull_request.assigned_reviewers.add(new_reviewer)
+            pull_request.save()
 
         serializer = self.get_serializer(pull_request)
         return Response({'pr': serializer.data, 'replaced_by': new_reviewer.pk}, status=status.HTTP_200_OK)

@@ -4,6 +4,7 @@ from teams.models import Team
 from users.models import User
 from pull_requests.models import PullRequest
 
+from django.db import transaction
 from rest_framework import serializers
 
 
@@ -34,10 +35,11 @@ class TeamSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         members = validated_data.pop('members')
 
-        team = Team.objects.create(**validated_data)
+        with transaction.atomic():
+            team = Team.objects.create(**validated_data)
 
-        for user in members:
-            User.objects.create(team=team, **user)
+            for user in members:
+                User.objects.create(team=team, **user)
 
         return team
 
@@ -59,16 +61,17 @@ class PullRequestSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"pull_request_name": "PR already exists"})
 
-        pull_request = PullRequest.objects.create(
-            author=author, status='OPEN', **validated_data)
+        with transaction.atomic():
+            pull_request = PullRequest.objects.create(
+                author=author, status='OPEN', **validated_data)
 
-        team_members = list(author.team.members.filter(
-            is_active=True).exclude(pk=author.pk))
-        assigned_reviewers = random.sample(
-            team_members, k=min(2, len(team_members)))
+            team_members = list(author.team.members.filter(
+                is_active=True).exclude(pk=author.pk))
+            assigned_reviewers = random.sample(
+                team_members, k=min(2, len(team_members)))
 
-        pull_request.assigned_reviewers.set(assigned_reviewers)
-        pull_request.save()
+            pull_request.assigned_reviewers.set(assigned_reviewers)
+            pull_request.save()
         return pull_request
 
 
