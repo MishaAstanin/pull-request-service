@@ -74,20 +74,21 @@ class UserViewSet(viewsets.GenericViewSet):
         user.save()
 
         if not is_active:
-                open_prs = user.review_assignments.filter(status='OPEN')
+            open_prs = user.review_assignments.filter(status='OPEN')
 
-                for pr in open_prs:
-                    pr.assigned_reviewers.remove(user)
+            for pr in open_prs:
+                pr.assigned_reviewers.remove(user)
 
-                    candidates = pr.author.team.members.filter(is_active=True).exclude(
-                        pk__in=[pr.author.pk] + list(pr.assigned_reviewers.values_list('pk', flat=True))
-                    )
+                candidates = pr.author.team.members.filter(is_active=True).exclude(
+                    pk__in=[pr.author.pk] +
+                    list(pr.assigned_reviewers.values_list('pk', flat=True))
+                )
 
-                    if candidates.exists():
-                        new_reviewer = random.choice(list(candidates))
-                        pr.assigned_reviewers.add(new_reviewer)
+                if candidates.exists():
+                    new_reviewer = random.choice(list(candidates))
+                    pr.assigned_reviewers.add(new_reviewer)
 
-                    pr.save()
+                pr.save()
 
         serializer = self.get_serializer(user)
         return Response({'user': serializer.data}, status=status.HTTP_200_OK)
@@ -109,6 +110,34 @@ class UserViewSet(viewsets.GenericViewSet):
             'user_id': user_id,
             'pull_requests': serializer.data
         }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='changeTeam')
+    def change_team(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        new_team_name = request.data.get('team_name')
+
+        if not user_id or not new_team_name:
+            return Response(
+                {'detail': 'user_id and team_name are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = get_object_or_404(User, pk=user_id)
+        new_team = get_object_or_404(Team, team_name=new_team_name)
+
+        open_prs = user.review_assignments.filter(status='OPEN')
+        if open_prs.exists():
+            return Response(
+                {"error": {"code": "PR_EXISTS",
+                           "message": "cannot change team while assigned to open pull requests"}},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        user.team = new_team
+        user.save()
+
+        serializer = self.get_serializer(user)
+        return Response({'user': serializer.data}, status=status.HTTP_200_OK)
 
 
 class PullRequestViewSet(viewsets.GenericViewSet):
