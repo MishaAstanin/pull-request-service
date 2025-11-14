@@ -199,7 +199,58 @@ paths:
                   is_active: false
         '404':
           description: Пользователь не найден
-
+          
+  /api/users/changeTeam/:
+    post:
+      tags:
+      - Users
+      summary: Сменить команду пользователя, если нет открытых пул-реквестов для ревью
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - team_name
+              properties:
+                user_id:
+                  type: string
+                team_name:
+                  type: string
+            example:
+              user_id: 1
+              team_name: backend
+      responses:
+        '200':
+          description: Пользователь успешно обновлен с новой командой
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pr:
+                    $ref: '#/components/schemas/User'
+              example:
+                user:
+                  user_id: 1
+                  username: Bob
+                  team_name: backend
+                  is_active: true
+        '404':
+          description: Пользователь или команда не найдены
+        '409':
+          description: Попытка смены команды при наличии открытых пул-реквестов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: PR_EXISTS
+                  message: cannot change team while assigned to open pull requests
+    
   /api/pullRequest/create/:
     post:
       tags:
