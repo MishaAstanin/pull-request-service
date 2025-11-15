@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -67,7 +68,7 @@ DATABASES = {
         'NAME': 'django',
         'USER': 'django_user',
         'PASSWORD': 'mysecretpassword',
-        'HOST': 'db',
+        'HOST': os.getenv('DB_HOST', 'db'),
         'PORT': 5432
     }
 }
