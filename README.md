@@ -20,7 +20,7 @@
   📄 OpenAPI спецификация и Redoc — визуализация и тестирование API.
 
 ## Схема БД
-![Схема Схема БД]<img width="981" height="351" alt="БД drawio" src="https://github.com/user-attachments/assets/e92b1b46-cd72-421b-a257-413f39eaee64" />
+<img width="981" height="351" alt="БД drawio" src="https://github.com/user-attachments/assets/e92b1b46-cd72-421b-a257-413f39eaee64" />
 
 
 ## Эндпоинты API
